@@ -1,34 +1,71 @@
-import express from "express";
-import cors from "cors";
-import bodyParser from "body-parser";
-import countryRoutes from "./routes/country.routes.js";
+import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
-
-const app = express();
 dotenv.config();
-const port = process.env.PORT || 5000;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const corsOptions = {
-  origin: [
-    "http://localhost:3000",
-    "https://travel-tracker-frontend.vercel.app",
-  ],
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  credentials: true,
-  optionsSuccessStatus: 204,
+export const addCountry = async (req, res) => {
+  const { country_code, user_id } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from("visited_countries")
+      .select("*")
+      .eq("country_code", country_code)
+      .eq("user_id", user_id);
+
+    if (data.length > 0) {
+      res.status(409).json({ error: "Country already visited" });
+    } else {
+      const { data: insertData, error: insertError } = await supabase
+        .from("visited_countries")
+        .insert([{ country_code, user_id }])
+        .single();
+
+      if (insertError) throw insertError;
+
+      res.json(insertData);
+    }
+  } catch (err) {
+    console.error(`Error adding country code: ${country_code}`, err);
+    res.status(500).json({ error: "Database error" });
+  }
 };
 
-app.get("/", (req, res) => {
-  res.send("Hello, this is the backend for Travel Tracker!");
-});
+export const removeCountry = async (req, res) => {
+  const { country_code, user_id } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from("visited_countries")
+      .delete()
+      .eq("country_code", country_code)
+      .eq("user_id", user_id)
+      .single();
 
-console.log("Supabase URL:", process.env.SUPABASE_URL);
-console.log("Supabase Key:", process.env.SUPABASE_KEY);
+    if (error) {
+      res.status(404).json({ error: "Country not found" });
+    } else {
+      res.json(data);
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
+};
 
-app.use(cors(corsOptions));
-app.use(bodyParser.json());
-app.use("/api/v1", countryRoutes);
+export const getVisitedCountries = async (req, res) => {
+  const { user_id } = req.query;
+  try {
+    const { data, error } = await supabase
+      .from("visited_countries")
+      .select("country_code")
+      .eq("user_id", user_id);
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
+};
