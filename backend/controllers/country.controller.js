@@ -1,52 +1,34 @@
-import pool from "../config/db.js";
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import countryRoutes from "./routes/country.routes.js";
+import dotenv from "dotenv";
 
-export const addCountry = async (req, res) => {
-  const { country_code } = req.body;
-  try {
-    console.log(`Checking if country code exists: ${country_code}`); //Debugging
-    const checkResult = await pool.query(
-      "SELECT * FROM visited_countries WHERE country_code = $1",
-      [country_code]
-    );
+const app = express();
+dotenv.config();
+const port = process.env.PORT || 5000;
 
-    if (checkResult.rows.length > 0) {
-      //Todo: Error Status Code
-    } else {
-      console.log(`Adding country code: ${country_code}`); //Debugging
-      const insertResult = await pool.query(
-        "INSERT INTO visited_countries (country_code) VALUES ($1) RETURNING *",
-        [country_code]
-      );
-      res.json(insertResult.rows[0]);
-    }
-  } catch (err) {
-    console.error(`Error adding country code: ${country_code}`, err);
-  }
+const corsOptions = {
+  origin: [
+    "http://localhost:3000",
+    "https://travel-tracker-frontend.vercel.app",
+  ],
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true,
+  optionsSuccessStatus: 204,
 };
 
-export const removeCountry = async (req, res) => {
-  const { country_code } = req.body;
-  try {
-    const removeResult = await pool.query(
-      "DELETE FROM visited_countries WHERE country_code = $1 RETURNING *",
-      [country_code]
-    );
-    if (removeResult.rows.length > 0) {
-      res.json(removeResult.rows[0]);
-    } else {
-    }
-  } catch (err) {
-    console.error(err);
-  }
-};
+app.get("/", (req, res) => {
+  res.send("Hello, this is the backend for Travel Tracker!");
+});
 
-export const getVisitedCountries = async (req, res) => {
-  try {
-    const getResult = await pool.query(
-      "SELECT country_code FROM visited_countries"
-    );
-    res.json(getResult.rows);
-  } catch (err) {
-    console.error(err);
-  }
-};
+console.log("Supabase URL:", process.env.SUPABASE_URL);
+console.log("Supabase Key:", process.env.SUPABASE_KEY);
+
+app.use(cors(corsOptions));
+app.use(bodyParser.json());
+app.use("/api/v1", countryRoutes);
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
